@@ -1,0 +1,131 @@
+
+--CREATE TABLE dataset_kimia_farma.kf_analisa1 AS
+SELECT ft.transaction_id, ft.date, ft.branch_id, kc.branch_name, kc.kota, kc.provinsi
+FROM dataset_kimia_farma.kf_final_transaction as ft 
+LEFT JOIN dataset_kimia_farma.kf_kantor_cabang as kc
+  on ft.branch_id = kc.branch_id
+
+;
+--CREATE TABLE dataset_kimia_farma.kf_RatingCabang AS
+SELECT ft.branch_id, avg(ft.rating) as avg_rating_transaction, kc.rating as rating_cabang
+FROM dataset_kimia_farma.kf_final_transaction as ft
+LEFT JOIN dataset_kimia_farma.kf_kantor_cabang as kc
+  on ft.branch_id = kc.branch_id
+group by ft.branch_id,kc.rating
+order by kc.rating desc, avg(ft.rating) asc
+;
+
+--CREATE TABLE dataset_kimia_farma.kf_laba AS
+SELECT ft.customer_name as Konsumen , pr.product_name as Nama_Obat,ft.product_id as id_product, pr.price as Harga_obat, ft.discount_percentage as Disc,
+FROM dataset_kimia_farma.kf_final_transaction as ft
+LEFT JOIN `dataset_kimia_farma.kf_product` as pr
+  on ft.product_id = pr.product_id
+
+;
+
+
+
+CREATE TABLE IF NOT EXISTS dataset_kimia_farma.kf_Nett_sell AS
+SELECT
+  ft.branch_id AS branch_id,
+  ft.customer_name AS Konsumen,
+  pr.product_name AS Nama_Obat,
+  ft.product_id AS id_product,
+  pr.price AS Harga_obat,
+  ft.discount_percentage AS Disc,
+  pr.price - (pr.price * ft.discount_percentage / 100) AS Nettsell
+FROM
+  dataset_kimia_farma.kf_final_transaction AS ft
+LEFT JOIN
+  dataset_kimia_farma.kf_product AS pr
+ON
+  ft.product_id = pr.product_id;
+
+
+
+
+-- CREATE TABLE dataset_kimia_farma.kf_Gross_laba
+CREATE TABLE IF NOT EXISTS dataset_kimia_farma.kf_Gross_laba AS
+SELECT
+  Nettsell,
+  CASE
+    WHEN Nettsell <= 50000 THEN Nettsell * 0.10
+    WHEN Nettsell > 50000 AND Nettsell <= 100000 THEN Nettsell * 0.15
+    WHEN Nettsell > 100000 AND Nettsell <= 300000 THEN Nettsell * 0.20
+    WHEN Nettsell > 300000 AND Nettsell <= 500000 THEN Nettsell * 0.25
+    WHEN Nettsell > 500000 THEN Nettsell * 0.30
+    ELSE NULL  -- Handle other cases if needed
+  END AS gross_laba
+FROM
+  dataset_kimia_farma.kf_Nett_sell;
+
+
+--nett_profit
+CREATE TABLE dataset_kimia_farma.kf_nett_profit AS
+SELECT
+  SUM(Nettsell) AS nett_profit
+FROM
+  dataset_kimia_farma.kf_Nett_sell
+;
+
+--perbandingan pendapatan pertahun
+CREATE TABLE kimia_farma.kf_perbandingan_pendapatan_pertahun AS
+SELECT
+  EXTRACT(YEAR FROM date) AS tahun,
+  SUM(price) AS total_pendapatan
+FROM
+  kimia_farma.kf_final_transaction
+GROUP BY
+  tahun
+ORDER BY
+  tahun
+;
+
+
+--Top 5 Cabang Dengan Rating Tertinggi, namun Rating Transaksi Terendah
+SELECT ft.branch_id, avg(ft.rating) as avg_rating_transaction, kc.rating as rating_cabang
+FROM dataset_kimia_farma.kf_final_transaction as ft
+left join dataset_kimia_farma.kf_kantor_cabang as kc
+  on ft. branch_id = kc.branch_id
+group by ft.branch_id, kc.rating
+order by kc.rating desc, avg(ft. rating) asc 
+LIMIT 5 ;
+
+
+-- Top 10 Total transaksi per cabang provinsi
+CREATE TABLE dataset_kimia_farma.kf_top_10_total_transaksi AS
+SELECT
+  kc.provinsi,
+  COUNT(*) AS total_transaksi_cabang
+FROM
+  dataset_kimia_farma.kf_final_transaction as ft
+LEFT JOIN
+  dataset_kimia_farma.kf_kantor_cabang as kc
+ON
+  ft.branch_id = kc.branch_id
+GROUP BY
+  kc.provinsi
+ORDER BY
+  total_transaksi_cabang DESC
+LIMIT
+  10;
+
+CREATE TABLE IF NOT EXISTS dataset_kimia_farma.kf_Nettsell_by_Provinsi AS
+SELECT
+  kc.provinsi,
+  SUM(ns.Nettsell) AS total_Nettsell
+FROM
+  `dataset_kimia_farma.kf_kantor_cabang` AS kc
+JOIN
+  dataset_kimia_farma.kf_Nett_sell AS ns
+ON
+  kc.branch_id = ns.branch_id
+GROUP BY
+  kc.provinsi
+
+ORDER BY
+  total_Nettsell DESC
+LIMIT 
+  10;
+
+  
